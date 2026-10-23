@@ -50,6 +50,18 @@ st.markdown("""
         font-weight: bold;
         border: 1px solid #86efac;
         margin-bottom: 4px;
+        font-size: 11px;
+    }
+    .status-busy {
+        background-color: #fee2e2;
+        color: #991b1b;
+        padding: 6px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        border: 1px solid #fca5a5;
+        margin-bottom: 4px;
+        font-size: 11px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -90,6 +102,28 @@ def obtener_matriz_hoja(nombre_hoja):
     except Exception:
         pass
     return []
+
+mapa_dias_bloques = {
+    "LUNES": [3, 4, 5, 6, 7], "MARTES": [8, 9, 10, 11, 12],
+    "MIÉRCOLES": [13, 14, 15, 16, 17], "JUEVES": [18, 19, 20, 21, 22],
+    "VIERNES": [23, 24, 25, 26, 27], "SÁBADO": [28, 29, 30, 31, 32]
+}
+
+mapa_filas = {
+    ("LUNES", "8:00 a.m."): 6, ("LUNES", "10:00 a.m."): 8, ("LUNES", "2:30 p.m."): 14, ("LUNES", "4:30 p.m."): 16,
+    ("MARTES", "8:00 a.m."): 6, ("MARTES", "10:00 a.m."): 8, ("MARTES", "2:30 p.m."): 14, ("MARTES", "4:30 p.m."): 16,
+    ("MIÉRCOLES", "8:00 a.m."): 6, ("MIÉRCOLES", "10:00 a.m."): 8, ("MIÉRCOLES", "2:30 p.m."): 14, ("MIÉRCOLES", "4:30 p.m."): 16,
+    ("JUEVES", "8:00 a.m."): 20, ("JUEVES", "10:00 a.m."): 22, ("JUEVES", "2:30 p.m."): 24, ("JUEVES", "4:30 p.m."): 26,
+    ("VIERNES", "8:00 a.m."): 20, ("VIERNES", "10:00 a.m."): 22, ("VIERNES", "2:30 p.m."): 24, ("VIERNES", "4:30 p.m."): 26,
+    ("SÁBADO", "8:00 a.m."): 20, ("SÁBADO", "10:00 a.m."): 22
+}
+
+def es_reserva_real(val):
+    if not val: return False
+    val_str = str(val).strip()
+    if val_str.lower() in ["none", "nan", ""]: return False
+    val_upper = val_str.upper()
+    return any(mot in val_upper for mot in ["ELVIS", "LUIS PEREZ", "DIEGO", "ALVARO", "TOMAS", "OCUPADO"])
 
 # --- 4. BARRA LATERAL Y CONTROLES ---
 st.sidebar.markdown("### ⚙️ Panel de Control")
@@ -150,7 +184,6 @@ else:
 
 st.sidebar.markdown("---")
 
-# Botón de Reiniciar Semana
 if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True, type="primary"):
     try:
         with st.spinner("Reiniciando semana en el servidor..."):
@@ -179,7 +212,7 @@ with col_m2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. CUADRO VISUAL DE DISPONIBILIDAD ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD CONECTADO A LA MATRIZ ---
 st.markdown("#### 📅 Disponibilidad de Espacio por Día")
 
 dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
@@ -192,30 +225,60 @@ for idx_dia, tab in enumerate(tabs):
         
         col_m, col_t = st.columns(2)
         
+        columnas_dia = mapa_dias_bloques.get(nombre_dia, [])
+        
         with col_m:
             st.markdown("##### 🌅 Mañana")
             for h in ["8:00 a.m.", "10:00 a.m."]:
                 st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
+                fila_idx = mapa_filas.get((nombre_dia, h), 0) - 1
+                
                 c1, c2, c3, c4, c5 = st.columns(5)
-                for c_idx, col in enumerate([c1, c2, c3, c4, c5]):
-                    with col:
-                        st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
+                cols_ui = [c1, c2, c3, c4, c5]
+                
+                for c_idx, col_num in enumerate(columnas_dia):
+                    val_celda = ""
+                    if matriz_datos and len(matriz_datos) > fila_idx:
+                        try:
+                            val_celda = str(matriz_datos[fila_idx][col_num - 3])
+                        except:
+                            pass
+                    
+                    with cols_ui[c_idx]:
+                        if es_reserva_real(val_celda):
+                            st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:15]}</small></div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
 
         with col_t:
             st.markdown("##### 🌆 Tarde")
             if nombre_dia != "SÁBADO":
                 for h in ["2:30 p.m.", "4:30 p.m."]:
                     st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
+                    fila_idx = mapa_filas.get((nombre_dia, h), 0) - 1
+                    
                     c1, c2, c3, c4, c5 = st.columns(5)
-                    for c_idx, col in enumerate([c1, c2, c3, c4, c5]):
-                        with col:
-                            st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
+                    cols_ui = [c1, c2, c3, c4, c5]
+                    
+                    for c_idx, col_num in enumerate(columnas_dia):
+                        val_celda = ""
+                        if matriz_datos and len(matriz_datos) > fila_idx:
+                            try:
+                                val_celda = str(matriz_datos[fila_idx][col_num - 3])
+                            except:
+                                pass
+                        
+                        with cols_ui[c_idx]:
+                            if es_reserva_real(val_celda):
+                                st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:15]}</small></div>", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
             else:
                 st.info("🚫 Tarde no laborable")
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 
-# --- 7. TABLA DE REGISTROS DE DESPACHO (VISIBLE ABAJO) ---
+# --- 7. TABLA DE REGISTROS DE DESPACHO ---
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
 if not df_historial.empty:
