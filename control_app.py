@@ -52,6 +52,17 @@ st.markdown("""
         margin-bottom: 4px;
         font-size: 11px;
     }
+    .status-busy {
+        background-color: #fee2e2;
+        color: #991b1b;
+        padding: 8px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        border: 1px solid #fca5a5;
+        margin-bottom: 4px;
+        font-size: 11px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -92,13 +103,6 @@ def obtener_matriz_hoja(nombre_hoja):
         pass
     return []
 
-def num_a_letra(num):
-    letra = ""
-    while num > 0:
-        num, remainder = divmod(num - 1, 26)
-        letra = chr(65 + remainder) + letra
-    return letra
-
 mapa_dias_bloques = {
     "LUNES": [3, 4, 5, 6, 7], "MARTES": [8, 9, 10, 11, 12],
     "MIÉRCOLES": [13, 14, 15, 16, 17], "JUEVES": [18, 19, 20, 21, 22],
@@ -133,7 +137,7 @@ st.sidebar.markdown("---")
 
 matriz_datos = obtener_matriz_hoja(nombre_hoja)
 
-# Filtrado estricto de fletes reales para la tabla inferior
+# Filtrado estricto de fletes reales para la tabla inferior y gestión
 df_historial = pd.DataFrame()
 if matriz_datos and len(matriz_datos) >= 30:
     filas_raw = matriz_datos[29:]
@@ -157,7 +161,33 @@ if not df_historial.empty:
         except:
             pass
 
-# Botón de Reiniciar Semana Completa
+# Módulo lateral limpio para borrar viajes por selección directa
+st.sidebar.markdown("### 🗑️ Cancelar / Eliminar Viaje")
+if not df_historial.empty:
+    opciones_viajes = []
+    for idx, row in df_historial.iterrows():
+        opciones_viajes.append(f"Fila {row['NUM_FILA']}: {row['MOTORISTA']} - {row['RESERVADO POR']} ({row['FECHA']})")
+    
+    viaje_a_eliminar = st.sidebar.selectbox("Seleccione flete a borrar:", opciones_viajes)
+    
+    if st.sidebar.button("❌ Borrar Flete Seleccionado", use_container_width=True, type="secondary"):
+        try:
+            num_fila_real = int(viaje_a_eliminar.split(":")[0].replace("Fila ", "").strip())
+            with st.spinner("Eliminando flete en el servidor..."):
+                response = requests.get(f"{WEB_APP_URL}?action=deleteRow&sheet={nombre_hoja}&row={num_fila_real}", timeout=15)
+                if response.status_code == 200:
+                    st.sidebar.success("¡Flete eliminado exitosamente!")
+                    st.rerun()
+                else:
+                    st.sidebar.error("Error al procesar la eliminación.")
+        except Exception as e:
+            st.sidebar.error(f"Error: {e}")
+else:
+    st.sidebar.caption("No hay fletes registrados para borrar.")
+
+st.sidebar.markdown("---")
+
+# Botón de Reiniciar Semana
 if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True, type="primary"):
     try:
         with st.spinner("Reiniciando semana en el servidor..."):
@@ -186,7 +216,7 @@ with col_m2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. CUADRO VISUAL DE DISPONIBILIDAD CON BOTONES DE ELIMINAR EN CASILLAS ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD LIMPIO ---
 st.markdown("#### 📅 Disponibilidad de Espacio por Día")
 
 dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
@@ -219,19 +249,7 @@ for idx_dia, tab in enumerate(tabs):
                     
                     with cols_ui[c_idx]:
                         if es_reserva_real(val_celda):
-                            st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
-                            celda_letra = num_a_letra(col_num)
-                            coord_celda = f"{celda_letra}{fila_idx + 1}"
-                            
-                            with st.form(key=f"form_del_{nombre_hoja}_{coord_celda}"):
-                                btn_borrar = st.form_submit_button("🗑️ Borrar", use_container_width=True)
-                                if btn_borrar:
-                                    try:
-                                        requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
-                                        st.success("¡Liberado!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error: {e}")
+                            st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:12]}</small></div>", unsafe_allow_html=True)
                         else:
                             st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
 
@@ -255,19 +273,7 @@ for idx_dia, tab in enumerate(tabs):
                         
                         with cols_ui[c_idx]:
                             if es_reserva_real(val_celda):
-                                st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
-                                celda_letra = num_a_letra(col_num)
-                                coord_celda = f"{celda_letra}{fila_idx + 1}"
-                                
-                                with st.form(key=f"form_del_{nombre_hoja}_{coord_celda}"):
-                                    btn_borrar = st.form_submit_button("🗑️ Borrar", use_container_width=True)
-                                    if btn_borrar:
-                                        try:
-                                            requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
-                                            st.success("¡Liberado!")
-                                            st.rerun()
-                                        except Exception as e:
-                                            st.error(f"Error: {e}")
+                                st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:12]}</small></div>", unsafe_allow_html=True)
                             else:
                                 st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
             else:
