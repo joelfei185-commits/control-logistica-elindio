@@ -94,7 +94,7 @@ def obtener_nombre_hoja(fecha_obj):
     meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
     return f"SEMANA {lunes.day}-{sabado.day} {meses[lunes.month - 1]}"
 
-@st.cache_data(ttl=5) # TTL corto para evitar que guarde caché vieja al reiniciar
+@st.cache_data(ttl=2) # TTL muy corto para refrescar al instante tras reiniciar
 def obtener_matriz_hoja(nombre_hoja):
     try:
         response = requests.get(f"{WEB_APP_URL}?action=getData&sheet={nombre_hoja}", timeout=10)
@@ -177,6 +177,7 @@ if not df_historial.empty:
             with st.spinner("Eliminando flete en el servidor..."):
                 response = requests.get(f"{WEB_APP_URL}?action=deleteRow&sheet={nombre_hoja}&row={num_fila_real}", timeout=15)
                 if response.status_code == 200:
+                    st.cache_data.clear()
                     st.sidebar.success("¡Flete eliminado exitosamente!")
                     st.rerun()
                 else:
@@ -194,7 +195,7 @@ if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True,
         with st.spinner("Reiniciando semana en el servidor..."):
             response = requests.get(f"{WEB_APP_URL}?action=reset&sheet={nombre_hoja}", timeout=15)
             if response.status_code == 200:
-                st.cache_data.clear() # Limpiamos la caché local de Streamlit
+                st.cache_data.clear()
                 st.sidebar.success(f"¡La {nombre_hoja} ha sido reiniciada!")
                 st.rerun()
             else:
