@@ -146,7 +146,7 @@ if not df_historial.empty:
         except Exception as e:
             st.sidebar.error(f"Error: {e}")
 else:
-    st.sidebar.caption("No hay viajes registrados para borrar en esta semana.")
+    st.sidebar.caption("No hay fletes registrados para borrar en esta semana.")
 
 st.sidebar.markdown("---")
 
@@ -170,7 +170,7 @@ if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
 # --- 5. PANEL PRINCIPAL ---
 st.markdown(f"<div class='main-header'>CENTRAL DE LOGÍSTICA — {nombre_hoja}</div>", unsafe_allow_html=True)
 
-# Tarjetas métricas corregidas
+# Tarjetas métricas
 col_m1, col_m2 = st.columns(2)
 with col_m1:
     st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>TOTAL DE VIAJES</span><h2 style='color: #1f4e78; margin: 0;'>{total_viajes}</h2></div>", unsafe_allow_html=True)
@@ -215,7 +215,7 @@ for idx_dia, tab in enumerate(tabs):
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 
-# --- 7. TABLA DE REGISTROS DE DESPACHO ---
+# --- 7. TABLA DE REGISTROS DE DESPACHO (VISIBLE ABAJO) ---
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
 if not df_historial.empty:
