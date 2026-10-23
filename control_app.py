@@ -10,10 +10,10 @@ st.set_page_config(
     layout="wide",
 )
 
-# Estilos CSS limpios y compactos
+# Estilos CSS limpios y ejecutivos
 st.markdown("""
     <style>
-    .stApp { background-color: #f4f6f9; }
+    .stApp { background-color: #f8fafc; }
     .main-header {
         background-color: #1f4e78;
         color: white;
@@ -22,22 +22,52 @@ st.markdown("""
         text-align: center;
         font-weight: bold;
         font-size: 20px;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
     .metric-box {
         background-color: #ffffff;
-        border: 1px solid #d1d5db;
+        border: 1px solid #cbd5e1;
         border-radius: 6px;
         padding: 12px;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .time-slot {
+        background-color: #e2e8f0;
+        padding: 6px;
+        font-weight: bold;
+        color: #1e293b;
+        border-radius: 4px;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        text-align: center;
+    }
+    .status-free {
+        background-color: #dcfce7;
+        color: #166534;
+        padding: 6px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        border: 1px solid #86efac;
+        margin-bottom: 4px;
+    }
+    .status-busy {
+        background-color: #fee2e2;
+        color: #991b1b;
+        padding: 6px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        border: 1px solid #fca5a5;
+        margin-bottom: 4px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyTrK1m9Rs1zSpUp1BRKn5WmSV-ixTrZ-R_yAng-xEGR_6NWYaz1T1W7uSjms5314U3/exec"
 
-# --- 2. SISTEMA DE SEGURIDAD (CONTRASEÑA) ---
+# --- 2. ACCESO SEGURIDAD ---
 PASSWORD_CORRECTA = "elindio2026"
 
 if "autenticado" not in st.session_state:
@@ -56,7 +86,7 @@ if not st.session_state.autenticado:
                 st.error("Clave incorrecta.")
     st.stop()
 
-# --- 3. FUNCIONES DE DATOS ---
+# --- 3. FUNCIONES DE APOYO ---
 def obtener_nombre_hoja(fecha_obj):
     lunes = fecha_obj - timedelta(days=fecha_obj.weekday())
     sabado = lunes + timedelta(days=5)
@@ -72,20 +102,20 @@ def obtener_matriz_hoja(nombre_hoja):
         pass
     return []
 
-# --- 4. BARRA LATERAL (ADMINISTRACIÓN LIMPIA) ---
+# --- 4. BARRA LATERAL ---
 st.sidebar.markdown("### ⚙️ Panel de Control")
 fecha_consulta = st.sidebar.date_input("Semana a Consultar:", datetime.now().date())
 nombre_hoja = obtener_nombre_hoja(fecha_consulta)
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🔄 Reiniciar Semana", use_container_width=True):
-    st.sidebar.warning("Comando de reinicio enviado.")
+    st.sidebar.warning("Comando enviado.")
 
 if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- 5. PANEL PRINCIPAL ORGANIZADO ---
+# --- 5. PANEL PRINCIPAL ---
 st.markdown(f"<div class='main-header'>CENTRAL DE LOGÍSTICA — {nombre_hoja}</div>", unsafe_allow_html=True)
 
 matriz_datos = obtener_matriz_hoja(nombre_hoja)
@@ -100,16 +130,58 @@ if matriz_datos and len(matriz_datos) > 1:
     except Exception:
         pass
 
-# Tarjetas de Resumen Compactas
+# Tarjetas métricas
 col_m1, col_m2 = st.columns(2)
 with col_m1:
-    st.markdown(f"<div class='metric-box'><span style='color: #6b7280; font-size: 14px;'>TOTAL DE VIAJES</span><h2 style='color: #1f4e78; margin: 0;'>{total_viajes}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>TOTAL DE VIAJES</span><h2 style='color: #1f4e78; margin: 0;'>{total_viajes}</h2></div>", unsafe_allow_html=True)
 with col_m2:
-    st.markdown(f"<div class='metric-box'><span style='color: #6b7280; font-size: 14px;'>PESO TOTAL (QQ)</span><h2 style='color: #c00000; margin: 0;'>{peso_total_qq}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>PESO TOTAL (QQ)</span><h2 style='color: #b91c1c; margin: 0;'>{peso_total_qq}</h2></div>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. REGISTRO DE DESPACHOS EN TABLA LIMPIA ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD (PESTAÑAS POR DÍA) ---
+st.markdown("#### 📅 Disponibilidad de Espacio por Día")
+
+dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
+tabs = st.tabs([f"📌 {d}" for d in dias])
+
+# Mapeo simple de horarios
+horarios = ["8:00 a.m.", "10:00 a.m.", "2:30 p.m.", "4:30 p.m."]
+
+for idx_dia, tab in enumerate(tabs):
+    nombre_dia = dias[idx_dia]
+    with tab:
+        st.caption(f"Horarios y cupos disponibles para el día **{nombre_dia}**")
+        
+        # Creamos columnas para organizar la mañana y la tarde
+        col_m, col_t = st.columns(2)
+        
+        with col_m:
+            st.markdown("##### 🌅 Mañana")
+            for h in ["8:00 a.m.", "10:00 a.m."]:
+                st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
+                # Mostramos los 5 camiones de forma compacta
+                c1, c2, c3, c4, c5 = st.columns(5)
+                for c_idx, col in enumerate([c1, c2, c3, c4, c5]):
+                    with col:
+                        # Simulamos o leemos el estado de la celda
+                        st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
+
+        with col_t:
+            st.markdown("##### 🌆 Tarde")
+            if nombre_dia != "SÁBADO":
+                for h in ["2:30 p.m.", "4:30 p.m."]:
+                    st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
+                    c1, c2, c3, c4, c5 = st.columns(5)
+                    for c_idx, col in enumerate([c1, c2, c3, c4, c5]):
+                        with col:
+                            st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
+            else:
+                st.info("🚫 Tarde no laborable")
+
+st.markdown("<br><hr>", unsafe_allow_html=True)
+
+# --- 7. TABLA DE REGISTROS DE DESPACHO ---
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
 if matriz_datos and len(matriz_datos) >= 30:
@@ -117,13 +189,12 @@ if matriz_datos and len(matriz_datos) >= 30:
     df_historial = pd.DataFrame(filas_historial).dropna(how="all")
     if not df_historial.empty:
         df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
-        # Mostramos una tabla limpia y ordenada sin relleno innecesario
         st.dataframe(
             df_historial[["MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"]], 
             use_container_width=True,
             hide_index=True
         )
     else:
-        st.info("No hay fletes agendados todavía para esta semana.")
+        st.info("No hay fletes agendados aún.")
 else:
-    st.info("Sincronizando datos de la semana...")
+    st.info("No se encontraron registros cargados para esta semana.")
