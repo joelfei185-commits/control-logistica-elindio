@@ -140,7 +140,7 @@ if matriz_datos and len(matriz_datos) >= 30:
     filas_validas = []
     for idx_f, fila in enumerate(filas_raw):
         if len(fila) >= 6 and str(fila[2]).strip() != "" and str(fila[2]).upper() not in ["MOTORISTA", "NONE", "NAN"]:
-            filas_validas.append([idx_f + 30] + list(fila)) # Guardamos el número de fila real
+            filas_validas.append([idx_f + 30] + list(fila))
     
     if filas_validas:
         df_historial = pd.DataFrame(filas_validas)
@@ -219,18 +219,19 @@ for idx_dia, tab in enumerate(tabs):
                     
                     with cols_ui[c_idx]:
                         if es_reserva_real(val_celda):
-                            # Casilla Ocupada con botón directo de eliminar
                             st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
                             celda_letra = num_a_letra(col_num)
                             coord_celda = f"{celda_letra}{fila_idx + 1}"
-                            if st.button("🗑️ Borrar", key=f"del_{nombre_hoja}_{coord_celda}", use_container_width=True):
-                                try:
-                                    # Limpiamos la celda en la matriz horaria
-                                    requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
-                                    st.success("¡Viaje liberado!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error: {e}")
+                            
+                            with st.form(key=f"form_del_{nombre_hoja}_{coord_celda}"):
+                                btn_borrar = st.form_submit_button("🗑️ Borrar", use_container_width=True)
+                                if btn_borrar:
+                                    try:
+                                        requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
+                                        st.success("¡Liberado!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error: {e}")
                         else:
                             st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
 
@@ -257,13 +258,16 @@ for idx_dia, tab in enumerate(tabs):
                                 st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
                                 celda_letra = num_a_letra(col_num)
                                 coord_celda = f"{celda_letra}{fila_idx + 1}"
-                                if st.button("🗑️ Borrar", key=f"del_{nombre_hoja}_{coord_celda}", use_container_width=True):
-                                    try:
-                                        requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
-                                        st.success("¡Viaje liberado!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error: {e}")
+                                
+                                with st.form(key=f"form_del_{nombre_hoja}_{coord_celda}"):
+                                    btn_borrar = st.form_submit_button("🗑️ Borrar", use_container_width=True)
+                                    if btn_borrar:
+                                        try:
+                                            requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
+                                            st.success("¡Liberado!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Error: {e}")
                             else:
                                 st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
             else:
@@ -275,7 +279,6 @@ st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
 if not df_historial.empty:
-    # Mostramos la tabla sin la columna interna NUM_FILA
     st.dataframe(
         df_historial[["MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"]], 
         use_container_width=True,
