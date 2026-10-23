@@ -94,6 +94,7 @@ def obtener_nombre_hoja(fecha_obj):
     meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
     return f"SEMANA {lunes.day}-{sabado.day} {meses[lunes.month - 1]}"
 
+@st.cache_data(ttl=5) # TTL corto para evitar que guarde caché vieja al reiniciar
 def obtener_matriz_hoja(nombre_hoja):
     try:
         response = requests.get(f"{WEB_APP_URL}?action=getData&sheet={nombre_hoja}", timeout=10)
@@ -137,7 +138,7 @@ st.sidebar.markdown("---")
 
 matriz_datos = obtener_matriz_hoja(nombre_hoja)
 
-# Filtrado estricto de fletes reales para la tabla inferior y gestión
+# Filtrado estricto de fletes reales para la tabla inferior
 df_historial = pd.DataFrame()
 if matriz_datos and len(matriz_datos) >= 30:
     filas_raw = matriz_datos[29:]
@@ -161,7 +162,7 @@ if not df_historial.empty:
         except:
             pass
 
-# Módulo lateral limpio para borrar viajes por selección directa
+# Módulo lateral para borrar viajes por selección directa
 st.sidebar.markdown("### 🗑️ Cancelar / Eliminar Viaje")
 if not df_historial.empty:
     opciones_viajes = []
@@ -193,6 +194,7 @@ if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True,
         with st.spinner("Reiniciando semana en el servidor..."):
             response = requests.get(f"{WEB_APP_URL}?action=reset&sheet={nombre_hoja}", timeout=15)
             if response.status_code == 200:
+                st.cache_data.clear() # Limpiamos la caché local de Streamlit
                 st.sidebar.success(f"¡La {nombre_hoja} ha sido reiniciada!")
                 st.rerun()
             else:
@@ -216,7 +218,7 @@ with col_m2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. CUADRO VISUAL DE DISPONIBILIDAD LIMPIO ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD ---
 st.markdown("#### 📅 Disponibilidad de Espacio por Día")
 
 dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
