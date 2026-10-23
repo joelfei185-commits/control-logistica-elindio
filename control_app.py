@@ -3,14 +3,13 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA (ICONO EJECUTIVO) ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
     page_title="Control Maestro - Ferretería El Indio",
     page_icon="👔",
     layout="wide",
 )
 
-# Estilos CSS limpios y ejecutivos
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
@@ -57,7 +56,7 @@ st.markdown("""
 
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyTrK1m9Rs1zSpUp1BRKn5WmSV-ixTrZ-R_yAng-xEGR_6NWYaz1T1W7uSjms5314U3/exec"
 
-# --- 2. ACCESO SEGURIDAD ---
+# --- 2. ACCESO Y SEGURIDAD ---
 PASSWORD_CORRECTA = "elindio2026"
 
 if "autenticado" not in st.session_state:
@@ -92,15 +91,67 @@ def obtener_matriz_hoja(nombre_hoja):
         pass
     return []
 
-# --- 4. BARRA LATERAL ---
+# --- 4. BARRA LATERAL Y CONTROLES ---
 st.sidebar.markdown("### ⚙️ Panel de Control")
 fecha_consulta = st.sidebar.date_input("Semana a Consultar:", datetime.now().date())
 nombre_hoja = obtener_nombre_hoja(fecha_consulta)
 
 st.sidebar.markdown("---")
 
-# Botón de Reiniciar Semana conectado al Backend
-if st.sidebar.button("🔄 Reiniciar Semana", use_container_width=True, type="primary"):
+matriz_datos = obtener_matriz_hoja(nombre_hoja)
+
+# Filtrado estricto de fletes reales
+df_historial = pd.DataFrame()
+if matriz_datos and len(matriz_datos) >= 30:
+    filas_raw = matriz_datos[29:]
+    filas_validas = []
+    for fila in filas_raw:
+        if len(fila) >= 6 and str(fila[2]).strip() != "" and str(fila[2]).upper() not in ["MOTORISTA", "NONE", "NAN"]:
+            filas_validas.append(fila)
+    
+    if filas_validas:
+        df_historial = pd.DataFrame(filas_validas)
+        df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
+
+total_viajes = len(df_historial)
+peso_total_qq = 0.0
+
+if not df_historial.empty:
+    for val in df_historial["PESO TOTAL"]:
+        try:
+            num_str = str(val).split("qq")[0].strip().replace(",", "")
+            peso_total_qq += float(num_str)
+        except:
+            pass
+
+# --- MÓDULO PARA ELIMINAR VIAJE ESPECÍFICO ---
+st.sidebar.markdown("### 🗑️ Cancelar / Eliminar Viaje")
+if not df_historial.empty:
+    opciones_viajes = []
+    for idx, row in df_historial.iterrows():
+        opciones_viajes.append(f"Fila {idx+30}: {row['MOTORISTA']} - {row['RESERVADO POR']} ({row['FECHA']})")
+    
+    viaje_a_eliminar = st.sidebar.selectbox("Seleccione flete a borrar:", opciones_viajes)
+    
+    if st.sidebar.button("❌ Borrar Viaje Seleccionado", use_container_width=True, type="secondary"):
+        try:
+            num_fila = int(viaje_a_eliminar.split(":")[0].replace("Fila ", "").strip())
+            with st.spinner("Eliminando flete en el servidor..."):
+                response = requests.get(f"{WEB_APP_URL}?action=deleteRow&sheet={nombre_hoja}&row={num_fila}", timeout=15)
+                if response.status_code == 200:
+                    st.sidebar.success("¡Flete eliminado exitosamente!")
+                    st.rerun()
+                else:
+                    st.sidebar.error("Error al procesar la eliminación.")
+        except Exception as e:
+            st.sidebar.error(f"Error: {e}")
+else:
+    st.sidebar.caption("No hay viajes registrados para borrar en esta semana.")
+
+st.sidebar.markdown("---")
+
+# Botón de Reiniciar Semana
+if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True, type="primary"):
     try:
         with st.spinner("Reiniciando semana en el servidor..."):
             response = requests.get(f"{WEB_APP_URL}?action=reset&sheet={nombre_hoja}", timeout=15)
@@ -119,28 +170,7 @@ if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
 # --- 5. PANEL PRINCIPAL ---
 st.markdown(f"<div class='main-header'>CENTRAL DE LOGÍSTICA — {nombre_hoja}</div>", unsafe_allow_html=True)
 
-matriz_datos = obtener_matriz_hoja(nombre_hoja)
-
-total_viajes = 0
-peso_total_qq = 0.0
-df_historial = pd.DataFrame()
-
-if matriz_datos and len(matriz_datos) >= 30:
-    filas_historial = matriz_datos[29:]
-    df_historial = pd.DataFrame(filas_historial).dropna(how="all")
-    if not df_historial.empty:
-        df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
-        
-        # Calculamos totales automáticamente desde los registros
-        total_viajes = len(df_historial)
-        for val in df_historial["PESO TOTAL"]:
-            try:
-                num_str = str(val).split("qq")[0].strip().replace(",", "")
-                peso_total_qq += float(num_str)
-            except:
-                pass
-
-# Tarjetas métricas actualizadas
+# Tarjetas métricas corregidas
 col_m1, col_m2 = st.columns(2)
 with col_m1:
     st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>TOTAL DE VIAJES</span><h2 style='color: #1f4e78; margin: 0;'>{total_viajes}</h2></div>", unsafe_allow_html=True)
@@ -149,7 +179,7 @@ with col_m2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. CUADRO VISUAL DE DISPONIBILIDAD (PESTAÑAS POR DÍA) ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD ---
 st.markdown("#### 📅 Disponibilidad de Espacio por Día")
 
 dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
