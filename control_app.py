@@ -44,22 +44,11 @@ st.markdown("""
     .status-free {
         background-color: #dcfce7;
         color: #166534;
-        padding: 6px;
+        padding: 8px;
         border-radius: 4px;
         text-align: center;
         font-weight: bold;
         border: 1px solid #86efac;
-        margin-bottom: 4px;
-        font-size: 11px;
-    }
-    .status-busy {
-        background-color: #fee2e2;
-        color: #991b1b;
-        padding: 6px;
-        border-radius: 4px;
-        text-align: center;
-        font-weight: bold;
-        border: 1px solid #fca5a5;
         margin-bottom: 4px;
         font-size: 11px;
     }
@@ -103,13 +92,20 @@ def obtener_matriz_hoja(nombre_hoja):
         pass
     return []
 
+def num_a_letra(num):
+    letra = ""
+    while num > 0:
+        num, remainder = divmod(num - 1, 26)
+        letra = chr(65 + remainder) + letra
+    return letra
+
 mapa_dias_bloques = {
     "LUNES": [3, 4, 5, 6, 7], "MARTES": [8, 9, 10, 11, 12],
     "MIÉRCOLES": [13, 14, 15, 16, 17], "JUEVES": [18, 19, 20, 21, 22],
     "VIERNES": [23, 24, 25, 26, 27], "SÁBADO": [28, 29, 30, 31, 32]
 }
 
-mapa_filas = {
+mapa_filas_vista = {
     ("LUNES", "8:00 a.m."): 6, ("LUNES", "10:00 a.m."): 8, ("LUNES", "2:30 p.m."): 14, ("LUNES", "4:30 p.m."): 16,
     ("MARTES", "8:00 a.m."): 6, ("MARTES", "10:00 a.m."): 8, ("MARTES", "2:30 p.m."): 14, ("MARTES", "4:30 p.m."): 16,
     ("MIÉRCOLES", "8:00 a.m."): 6, ("MIÉRCOLES", "10:00 a.m."): 8, ("MIÉRCOLES", "2:30 p.m."): 14, ("MIÉRCOLES", "4:30 p.m."): 16,
@@ -121,9 +117,12 @@ mapa_filas = {
 def es_reserva_real(val):
     if not val: return False
     val_str = str(val).strip()
-    if val_str.lower() in ["none", "nan", ""]: return False
+    if val_str.lower() in ["none", "nan", "", "libre"]: return False
     val_upper = val_str.upper()
-    return any(mot in val_upper for mot in ["ELVIS", "LUIS PEREZ", "DIEGO", "ALVARO", "TOMAS", "OCUPADO"])
+    motoristas_validos = ["ELVIS", "LUIS PEREZ", "DIEGO", "ALVARO", "TOMAS"]
+    if any(mot in val_upper for mot in motoristas_validos) or "OCUPADO" in val_upper:
+        return True
+    return False
 
 # --- 4. BARRA LATERAL Y CONTROLES ---
 st.sidebar.markdown("### ⚙️ Panel de Control")
@@ -134,20 +133,20 @@ st.sidebar.markdown("---")
 
 matriz_datos = obtener_matriz_hoja(nombre_hoja)
 
-# Filtrado estricto de fletes reales
+# Filtrado estricto de fletes reales para la tabla inferior
 df_historial = pd.DataFrame()
 if matriz_datos and len(matriz_datos) >= 30:
     filas_raw = matriz_datos[29:]
     filas_validas = []
-    for fila in filas_raw:
+    for idx_f, fila in enumerate(filas_raw):
         if len(fila) >= 6 and str(fila[2]).strip() != "" and str(fila[2]).upper() not in ["MOTORISTA", "NONE", "NAN"]:
-            filas_validas.append(fila)
+            filas_validas.append([idx_f + 30] + list(fila)) # Guardamos el número de fila real
     
     if filas_validas:
         df_historial = pd.DataFrame(filas_validas)
-        df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
+        df_historial.columns = ["NUM_FILA", "COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-9)]
 
-total_viajes = len(df_historial)
+total_viajes = len(df_historial) if not df_historial.empty else 0
 peso_total_qq = 0.0
 
 if not df_historial.empty:
@@ -158,32 +157,7 @@ if not df_historial.empty:
         except:
             pass
 
-# --- MÓDULO PARA ELIMINAR VIAJE ESPECÍFICO ---
-st.sidebar.markdown("### 🗑️ Cancelar / Eliminar Viaje")
-if not df_historial.empty:
-    opciones_viajes = []
-    for idx, row in df_historial.iterrows():
-        opciones_viajes.append(f"Fila {idx+30}: {row['MOTORISTA']} - {row['RESERVADO POR']} ({row['FECHA']})")
-    
-    viaje_a_eliminar = st.sidebar.selectbox("Seleccione flete a borrar:", opciones_viajes)
-    
-    if st.sidebar.button("❌ Borrar Viaje Seleccionado", use_container_width=True, type="secondary"):
-        try:
-            num_fila = int(viaje_a_eliminar.split(":")[0].replace("Fila ", "").strip())
-            with st.spinner("Eliminando flete en el servidor..."):
-                response = requests.get(f"{WEB_APP_URL}?action=deleteRow&sheet={nombre_hoja}&row={num_fila}", timeout=15)
-                if response.status_code == 200:
-                    st.sidebar.success("¡Flete eliminado exitosamente!")
-                    st.rerun()
-                else:
-                    st.sidebar.error("Error al procesar la eliminación.")
-        except Exception as e:
-            st.sidebar.error(f"Error: {e}")
-else:
-    st.sidebar.caption("No hay fletes registrados para borrar en esta semana.")
-
-st.sidebar.markdown("---")
-
+# Botón de Reiniciar Semana Completa
 if st.sidebar.button("🔄 Reiniciar Semana Completa", use_container_width=True, type="primary"):
     try:
         with st.spinner("Reiniciando semana en el servidor..."):
@@ -212,7 +186,7 @@ with col_m2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 6. CUADRO VISUAL DE DISPONIBILIDAD CONECTADO A LA MATRIZ ---
+# --- 6. CUADRO VISUAL DE DISPONIBILIDAD CON BOTONES DE ELIMINAR EN CASILLAS ---
 st.markdown("#### 📅 Disponibilidad de Espacio por Día")
 
 dias = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
@@ -221,17 +195,16 @@ tabs = st.tabs([f"📌 {d}" for d in dias])
 for idx_dia, tab in enumerate(tabs):
     nombre_dia = dias[idx_dia]
     with tab:
-        st.caption(f"Horarios y cupos disponibles para el día **{nombre_dia}**")
+        st.caption(f"Horarios y cupos para el día **{nombre_dia}**")
         
         col_m, col_t = st.columns(2)
-        
         columnas_dia = mapa_dias_bloques.get(nombre_dia, [])
         
         with col_m:
             st.markdown("##### 🌅 Mañana")
             for h in ["8:00 a.m.", "10:00 a.m."]:
                 st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
-                fila_idx = mapa_filas.get((nombre_dia, h), 0) - 1
+                fila_idx = mapa_filas_vista.get((nombre_dia, h), 0) - 1
                 
                 c1, c2, c3, c4, c5 = st.columns(5)
                 cols_ui = [c1, c2, c3, c4, c5]
@@ -246,7 +219,18 @@ for idx_dia, tab in enumerate(tabs):
                     
                     with cols_ui[c_idx]:
                         if es_reserva_real(val_celda):
-                            st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:15]}</small></div>", unsafe_allow_html=True)
+                            # Casilla Ocupada con botón directo de eliminar
+                            st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
+                            celda_letra = num_a_letra(col_num)
+                            coord_celda = f"{celda_letra}{fila_idx + 1}"
+                            if st.button("🗑️ Borrar", key=f"del_{nombre_hoja}_{coord_celda}", use_container_width=True):
+                                try:
+                                    # Limpiamos la celda en la matriz horaria
+                                    requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
+                                    st.success("¡Viaje liberado!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
                         else:
                             st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
 
@@ -255,7 +239,7 @@ for idx_dia, tab in enumerate(tabs):
             if nombre_dia != "SÁBADO":
                 for h in ["2:30 p.m.", "4:30 p.m."]:
                     st.markdown(f"<div class='time-slot'>⏱️ {h}</div>", unsafe_allow_html=True)
-                    fila_idx = mapa_filas.get((nombre_dia, h), 0) - 1
+                    fila_idx = mapa_filas_vista.get((nombre_dia, h), 0) - 1
                     
                     c1, c2, c3, c4, c5 = st.columns(5)
                     cols_ui = [c1, c2, c3, c4, c5]
@@ -270,7 +254,16 @@ for idx_dia, tab in enumerate(tabs):
                         
                         with cols_ui[c_idx]:
                             if es_reserva_real(val_celda):
-                                st.markdown(f"<div class='status-busy'>Camión {c_idx+1}<br><small>{val_celda[:15]}</small></div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='background-color: #fee2e2; color: #991b1b; padding: 4px; border-radius: 4px; text-align: center; font-size: 10px; font-weight: bold;'>Camión {c_idx+1}<br>{val_celda[:12]}</div>", unsafe_allow_html=True)
+                                celda_letra = num_a_letra(col_num)
+                                coord_celda = f"{celda_letra}{fila_idx + 1}"
+                                if st.button("🗑️ Borrar", key=f"del_{nombre_hoja}_{coord_celda}", use_container_width=True):
+                                    try:
+                                        requests.post(WEB_APP_URL, json={"action": "updateCell", "cell": coord_celda, "text": "", "color": {"red": 1, "green": 1, "blue": 1}, "sheet": nombre_hoja}, timeout=10)
+                                        st.success("¡Viaje liberado!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error: {e}")
                             else:
                                 st.markdown(f"<div class='status-free'>Camión {c_idx+1}<br><small>Libre</small></div>", unsafe_allow_html=True)
             else:
@@ -278,10 +271,11 @@ for idx_dia, tab in enumerate(tabs):
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 
-# --- 7. TABLA DE REGISTROS DE DESPACHO ---
+# --- 7. TABLA DE REGISTROS DE DESPACHO ABAJO ---
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
 if not df_historial.empty:
+    # Mostramos la tabla sin la columna interna NUM_FILA
     st.dataframe(
         df_historial[["MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"]], 
         use_container_width=True,
