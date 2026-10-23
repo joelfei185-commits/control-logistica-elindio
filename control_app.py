@@ -3,10 +3,10 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA (ICONO EJECUTIVO) ---
 st.set_page_config(
     page_title="Control Maestro - Ferretería El Indio",
-    page_icon="🚛",
+    page_icon="👔",
     layout="wide",
 )
 
@@ -123,20 +123,29 @@ matriz_datos = obtener_matriz_hoja(nombre_hoja)
 
 total_viajes = 0
 peso_total_qq = 0.0
+df_historial = pd.DataFrame()
 
-if matriz_datos and len(matriz_datos) > 1:
-    try:
-        total_viajes = matriz_datos[1][4] or 0
-        peso_total_qq = matriz_datos[1][7] or 0
-    except Exception:
-        pass
+if matriz_datos and len(matriz_datos) >= 30:
+    filas_historial = matriz_datos[29:]
+    df_historial = pd.DataFrame(filas_historial).dropna(how="all")
+    if not df_historial.empty:
+        df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
+        
+        # Calculamos totales automáticamente desde los registros
+        total_viajes = len(df_historial)
+        for val in df_historial["PESO TOTAL"]:
+            try:
+                num_str = str(val).split("qq")[0].strip().replace(",", "")
+                peso_total_qq += float(num_str)
+            except:
+                pass
 
-# Tarjetas métricas
+# Tarjetas métricas actualizadas
 col_m1, col_m2 = st.columns(2)
 with col_m1:
     st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>TOTAL DE VIAJES</span><h2 style='color: #1f4e78; margin: 0;'>{total_viajes}</h2></div>", unsafe_allow_html=True)
 with col_m2:
-    st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>PESO TOTAL (QQ)</span><h2 style='color: #b91c1c; margin: 0;'>{peso_total_qq}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-box'><span style='color: #64748b; font-size: 13px; font-weight: bold;'>PESO TOTAL (QQ)</span><h2 style='color: #b91c1c; margin: 0;'>{peso_total_qq:.2f}</h2></div>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -179,17 +188,11 @@ st.markdown("<br><hr>", unsafe_allow_html=True)
 # --- 7. TABLA DE REGISTROS DE DESPACHO ---
 st.markdown("#### 📋 Despachos Agendados en la Semana")
 
-if matriz_datos and len(matriz_datos) >= 30:
-    filas_historial = matriz_datos[29:]
-    df_historial = pd.DataFrame(filas_historial).dropna(how="all")
-    if not df_historial.empty:
-        df_historial.columns = ["COL_A", "COL_B", "MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"] + [f"C_{i}" for i in range(len(df_historial.columns)-8)]
-        st.dataframe(
-            df_historial[["MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"]], 
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("No hay fletes agendados aún.")
+if not df_historial.empty:
+    st.dataframe(
+        df_historial[["MOTORISTA", "CANT. VIAJES", "RESERVADO POR", "PESO TOTAL", "FECHA", "DIRECCION"]], 
+        use_container_width=True,
+        hide_index=True
+    )
 else:
-    st.info("No se encontraron registros cargados para esta semana.")
+    st.info("No hay fletes agendados aún para esta semana.")
